@@ -71,6 +71,7 @@ relocated:
 	# Clear the frame pointer register (EBP)
 	# so that once we get into debugging C code,
 	# stack backtraces will be terminated properly.
+	# where to stop Lab 1 exercise 11 --> while (ebp){...}
 	movl	$0x0,%ebp			# nuke frame pointer
 
 	# Set the stack pointer
