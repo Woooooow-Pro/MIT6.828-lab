@@ -74,8 +74,10 @@ TRAPHANDLER_NOEC(SimderrHandler, T_SIMDERR)
  */
 
 _alltraps:
-	pushl %ds
-	pushl %es
+	pushw $0
+	pushw %ds
+	pushw $0
+	pushw %es
 	pushal
 	movw $GD_KD, %ax
 	movw %ax, %ds
