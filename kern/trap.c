@@ -87,6 +87,8 @@ trap_init(void)
 	void MchkHandler();
 	void SimderrHandler();
 
+	void SystemcallHandler();
+
 	SETGATE(idt[T_DIVIDE], 0, GD_KT, DivideHandler, 0);
 	SETGATE(idt[T_DEBUG], 0, GD_KT, DebugHandler, 0);
 	SETGATE(idt[T_NMI], 0, GD_KT, NmiHandler, 0);
@@ -107,6 +109,8 @@ trap_init(void)
 	SETGATE(idt[T_ALIGN], 0, GD_KT, AlignHandler, 0);
 	SETGATE(idt[T_MCHK], 0, GD_KT, MchkHandler, 0);
 	SETGATE(idt[T_SIMDERR], 0, GD_KT, SimderrHandler, 0);
+
+	SETGATE(idt[T_SYSCALL], 0, GD_KT, SystemcallHandler, 3);
 	
 	// Per-CPU setup 
 	trap_init_percpu();
@@ -192,6 +196,12 @@ trap_dispatch(struct Trapframe *tf)
 			return;
 		case T_PGFLT: 
 			page_fault_handler(tf);
+			return;
+		case T_SYSCALL:
+			tf->tf_regs.reg_eax = syscall(tf->tf_regs.reg_eax,
+			tf->tf_regs.reg_edx, tf->tf_regs.reg_ecx,
+			tf->tf_regs.reg_ebx, tf->tf_regs.reg_edi,
+			tf->tf_regs.reg_esi);
 			return;
 		default: ;
 	}
