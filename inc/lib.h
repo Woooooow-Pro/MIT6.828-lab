@@ -39,7 +39,7 @@ void	sys_cputs(const char *string, size_t len);
 int	sys_cgetc(void);
 envid_t	sys_getenvid(void);
 int	sys_env_destroy(envid_t);
-
+void sys_show_environments(void);
 
 
 /* File open modes */

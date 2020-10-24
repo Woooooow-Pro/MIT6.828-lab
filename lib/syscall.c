@@ -61,3 +61,8 @@ sys_getenvid(void)
 	 return syscall(SYS_getenvid, 0, 0, 0, 0, 0, 0);
 }
 
+void
+sys_show_environments(void)
+{
+	syscall(SYS_show_environments, 0, 0, 0, 0, 0, 0);
+}

@@ -62,6 +62,29 @@ sys_env_destroy(envid_t envid)
 	return 0;
 }
 
+static void
+sys_show_environments(void) {
+	for(int i = 0; i < NENV; ++i){
+		if (envs[i].env_status == ENV_FREE || \
+		envs[i].env_status == ENV_NOT_RUNNABLE)
+			continue;
+		cprintf("Environment env_id: %x\tstatus: ", envs[i].env_id);
+		switch(envs[i].env_status){
+			case ENV_DYING:
+				cprintf("ENV_DYING\n");
+				break;
+			case ENV_RUNNABLE:
+				cprintf("ENV_RUNNABLE\n");
+				break;
+			case ENV_RUNNING:
+				cprintf("ENV_RUNNING\n");
+				break;
+			default: ;
+		}
+	}
+	return;
+}
+
 // Dispatches to the correct kernel function, passing the arguments.
 int32_t
 syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, uint32_t a5)
@@ -70,7 +93,6 @@ syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, 
 	// Return any appropriate return value.
 	// LAB 3: Your code here.
 
-	// panic("syscall not implemented");
 
 	switch (syscallno) {
 		case SYS_cputs:
@@ -82,9 +104,12 @@ syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, 
 			return sys_getenvid();
 		case SYS_env_destroy:
 			return sys_env_destroy((envid_t)a1);
+		case SYS_show_environments:
+			sys_show_environments();
+			return 0;
 		case NSYSCALLS:
 		default:
 			return -E_INVAL;
 	}
+	panic("syscall not implemented");
 }
-
