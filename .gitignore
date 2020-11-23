@@ -4,7 +4,7 @@
 /jos.out
 /jos.out.*
 /jos.cmd
-/.gdbinit
+/.gdbinit*
 /wget.log
 /qemu.pcap
 /qemu.pcap.*
@@ -18,3 +18,5 @@
 /.suf
 /__pycache__
 /.vscode
+/*.log
+/*.pdf
