@@ -12,6 +12,8 @@
 #include <kern/kdebug.h>
 #include <kern/trap.h>
 
+#include <kern/pmap.h>
+
 #define CMDBUF_SIZE	80	// enough for one VGA text line
 
 
@@ -25,6 +27,9 @@ struct Command {
 static struct Command commands[] = {
 	{ "help", "Display this list of commands", mon_help },
 	{ "kerninfo", "Display information about the kernel", mon_kerninfo },
+	{ "mon_backtrace", "Display information about the stack", mon_backtrace},
+	{ "showva2pa", "Display the physical address of the virtual address, max argument 2", showva2pa}
+	// { "backtrace", "Display debug information about the stack", backtrace}
 };
 
 /***** Implementations of basic kernel monitor commands *****/
@@ -59,8 +64,108 @@ int
 mon_backtrace(int argc, char **argv, struct Trapframe *tf)
 {
 	// Your code here.
+	uint32_t *ebp = (uint32_t*) read_ebp();
+	cprintf("Stack backtrace:\n");
+	while (ebp) {
+		uintptr_t eip = ebp[1];
+		cprintf("  ebp %08x  eip %08x  args", ebp, eip);
+		for (int i = 2; i <= 6; ++i)
+			cprintf(" %08x", ebp[i]);
+		cprintf("\n");
+
+		struct Eipdebuginfo info;
+		debuginfo_eip(eip, &info);
+		cprintf("         %s:%d: %.*s+%d\n",
+		  info.eip_file, info.eip_line, info.eip_fn_namelen, 
+		  info.eip_fn_name, eip - info.eip_fn_addr);
+		ebp = (uint32_t*) *ebp;
+	}
 	return 0;
 }
+
+int
+showva2pa(int argc, char **argv, struct Trapframe *tf){
+	// cprintf("argc: %d", argc);
+	if(argc > 3 || argc < 2){
+		// cprintf("argc: %d", argc);
+		cprintf("Illegal arguments number (max: 2, min: 1)!\n");
+		return 0;
+	}
+	
+	uintptr_t VirtualAddress[2];
+	for(int i = 1, len = 0; i < argc; ++i){
+		len = strlen(argv[i]);
+		if( (argv[i][0] != '0' && argv[i][1] != 'x') || len != 10){
+			cprintf("Illegal arguments: %s!\n", argv[i]);
+			return 0;
+		}
+		VirtualAddress[i-1] = H2D(argv[i] + 2);
+	}
+	if(argc == 2){
+		showva2pa_print((void *)VirtualAddress[0]);
+		return 0;
+	}
+	for(uintptr_t va = VirtualAddress[0]; va <= VirtualAddress[1]; va += PGSIZE)
+		showva2pa_print((void *)va);
+	return 0;
+}
+
+void showva2pa_print(void *va){
+    pte_t *pte_p = pgdir_walk(kern_pgdir, va, false);
+    struct PageInfo *pginfo;
+	bool pte_w, pte_u;
+    cprintf("VA: 0x%08x, ", (physaddr_t)va);
+    if (!pte_p || !(*pte_p & PTE_P)){
+        cprintf("doesn't have a mapped pysical page!\n");
+        return;
+    }
+    pginfo = pa2page(PTE_ADDR(*(pte_p)));
+	if( *(pte_p) | PTE_W)
+		pte_w = true;
+	if(*(pte_p) | PTE_U)
+		pte_u = true;
+    cprintf("PA: 0x%08x, pp_ref: %3d, PTE_W: %1d, PTE_U: %1d\n", PTE_ADDR(*(pte_p)),
+        pginfo->pp_ref, pte_w, pte_u);
+	return;
+}
+
+unsigned int H2D(char *s){
+	int len = strlen(s);
+	char c;
+	uint32_t result = 0;
+	for(int i = 0; i < len; ++i){
+		result *= 16;
+		c = s[i];
+		if(c <= '9' && c >= '0')
+			result += c - '0';
+		else if(c >= 'a' && c <= 'f')
+			result += c - 'a' + 10;
+		else return -1;
+	}
+	return result;
+}
+
+// int
+// backtrace(int argc, char **argv, struct Trapframe *tf)
+// {
+// 	uint32_t *ebp = (uint32_t*) read_ebp();
+// 	cprintf("Stack backtrace:\n");
+// 	while (ebp) {
+// 		uintptr_t eip = ebp[1];
+// 		cprintf("  ebp %08x  eip %08x  args", ebp, eip);
+// 		for (int i = 2; i <= 6; ++i)
+// 			cprintf(" %08x", ebp[i]);
+// 		cprintf("\n");
+
+// 		struct Eipdebuginfo info;
+// 		debuginfo_eip(eip, &info);
+// 		cprintf("         %s:%d: %.*s+%d\n",
+// 		  info.eip_file, info.eip_line, info.eip_fn_namelen, 
+// 		  info.eip_fn_name, eip - info.eip_fn_addr);
+// 		ebp = (uint32_t*) *ebp;
+// 	}
+// 	return 0;
+// }
 
 
 
