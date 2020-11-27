@@ -64,7 +64,6 @@ sys_env_destroy(envid_t envid)
 	return 0;
 }
 
-<<<<<<< HEAD
 // Deschedule current environment and pick a different one to run.
 static void
 sys_yield(void)
@@ -263,7 +262,8 @@ sys_ipc_recv(void *dstva)
 	// LAB 4: Your code here.
 	panic("sys_ipc_recv not implemented");
 	return 0;
-=======
+}
+
 static void
 sys_show_environments(void) {
 	for(int i = 0; i < NENV; ++i){
@@ -285,7 +285,7 @@ sys_show_environments(void) {
 		}
 	}
 	return;
->>>>>>> lab3
+
 }
 
 // Dispatches to the correct kernel function, passing the arguments.

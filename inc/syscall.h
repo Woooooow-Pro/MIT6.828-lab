@@ -7,7 +7,7 @@ enum {
 	SYS_cgetc,
 	SYS_getenvid,
 	SYS_env_destroy,
-<<<<<<< HEAD
+
 	SYS_page_alloc,
 	SYS_page_map,
 	SYS_page_unmap,
@@ -17,9 +17,7 @@ enum {
 	SYS_yield,
 	SYS_ipc_try_send,
 	SYS_ipc_recv,
-=======
 	SYS_show_environments,
->>>>>>> lab3
 	NSYSCALLS
 };
 

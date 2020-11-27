@@ -62,7 +62,6 @@ sys_getenvid(void)
 }
 
 void
-<<<<<<< HEAD
 sys_yield(void)
 {
 	syscall(SYS_yield, 0, 0, 0, 0, 0, 0);
@@ -112,9 +111,8 @@ sys_ipc_recv(void *dstva)
 	return syscall(SYS_ipc_recv, 1, (uint32_t)dstva, 0, 0, 0, 0);
 }
 
-=======
+void
 sys_show_environments(void)
 {
 	syscall(SYS_show_environments, 0, 0, 0, 0, 0, 0);
 }
->>>>>>> lab3

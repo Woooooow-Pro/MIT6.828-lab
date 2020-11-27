@@ -43,7 +43,7 @@ void	sys_cputs(const char *string, size_t len);
 int	sys_cgetc(void);
 envid_t	sys_getenvid(void);
 int	sys_env_destroy(envid_t);
-<<<<<<< HEAD
+
 void	sys_yield(void);
 static envid_t sys_exofork(void);
 int	sys_env_set_status(envid_t env, int status);
@@ -76,9 +76,9 @@ envid_t	ipc_find_env(enum EnvType type);
 envid_t	fork(void);
 envid_t	sfork(void);	// Challenge!
 
-=======
+
 void sys_show_environments(void);
->>>>>>> lab3
+
 
 
 /* File open modes */
