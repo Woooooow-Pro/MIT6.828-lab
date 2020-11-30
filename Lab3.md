@@ -335,7 +335,7 @@ kernel/trapentry.S 中利用给定的两个宏和 **Table 3-1** 中给定的是�
 
 如果不去考虑过多过程, 这道题目其实也就是按照代码中所给的注释一步步做就能做出来了. 第一件事就是对照 inc/trap.h 中的宏和上表所给的对应关系, 利用 kernel/entrytrap.S 中两个宏 `TRAPHANDLER(name, num)`( 对应包含 Error Code 的Interrupt ) 和 `TRAPHANDLER_NOEC(name, num)` ( 对应不包含 Error Code 的Interrupt ), 初始化 ( ?表示不清楚 ) intterupt 并且给每个取个名, 好在 kernel/trap.c 中引用获取地址. 具体实现如下
 
-```x86asm
+```S
 /*
  * Lab 3: Your code here for generating entry points for the different traps.
  */
@@ -363,7 +363,7 @@ TRAPHANDLER_NOEC(SimderrHandler, T_SIMDERR)
 
 注意到, `TRAPHANDLER(name, num)` 和 `TRAPHANDLER_NOEC(name, num)` push 完 num 后都会跳转到 `_alltraps:` 函数继续完成 [`Trapfram`](inc/trap.h) 的压栈 ( 也就是说我们要完成 `tf_trapno` 以上的内容的压栈. 注意在 `Trapfram` 中 `tf_err` 到 `tf_eflags` 是硬件自行压栈的, 而之后三项是当 Interrupt 发生在 user model 下转入 kernel model 时才需要压栈的, 也就是恢复 user stack 用的. 而为了实现 `Trapfram` 的结构, 应当以变量定义的相反方向压入变量 ). 这里我们要利用
 
-```x86asm
+```S
 pushw $0
 pushw %ds
 pushw $0
@@ -372,7 +372,7 @@ pushw %es
 
 把 %ds 和 %es 分别依次压入栈中. 然后根据要求利用通用寄存器 ax 将变量 *GD_KD* 复制给 ds 和 es, 最后 `pushl %esp` 传递指向 `Trapfram` 的指针给接下来要 call 的函数 `trap()`. 最后 `call trap`. 具体实现如下:
 
-```x86asm
+```S
 _alltraps:
     pushw $0
     pushw %ds

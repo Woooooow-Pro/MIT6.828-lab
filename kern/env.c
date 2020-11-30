@@ -522,6 +522,8 @@ env_run(struct Env *e)
 	//	   5. Use lcr3() to switch to its address space.
 	lcr3(PADDR(curenv->env_pgdir));
 
+	unlock_kernel();
+
 	// Step 2: Use env_pop_tf() to restore the environment's
 	//	   registers and drop into user mode in the
 	//	   environment.
