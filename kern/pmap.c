@@ -640,7 +640,7 @@ mmio_map_region(physaddr_t pa, size_t size)
 	pa = ROUNDDOWN(pa, PGSIZE);
 	size -= pa;
 	if(size + base >= MMIOLIM)
-		panic("In kern/pmap.c:mmio_map_region():\n\treservation would overflow MMIOLIM!\n");
+		panic("reservation would overflow MMIOLIM!\n");
 
 	boot_map_region(kern_pgdir, base, size, pa, PTE_PCD|PTE_PWT|PTE_W);
 

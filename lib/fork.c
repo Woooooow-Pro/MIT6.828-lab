@@ -29,10 +29,10 @@ pgfault(struct UTrapframe *utf)
 	addr = ROUNDDOWN(addr, PGSIZE);
 
 	if(!(err & FEC_WR))
-		panic("lib/fork.c: pgfault error Not FEC_WR");
+		panic("pgfault error Not FEC_WR");
 
 	if(!(uvpt[(uintptr_t)PGNUM(addr)] & PTE_COW))
-		panic("lib/fork.c: pgfault error Not PTE_COW");
+		panic("pgfault error Not PTE_COW");
 
 	// Allocate a new page, map it at a temporary location (PFTEMP),
 	// copy the data from the old page to the new page, then move the new
@@ -44,15 +44,15 @@ pgfault(struct UTrapframe *utf)
 	int perm = PTE_P|PTE_U|PTE_W;
 	envid_t envid = sys_getenvid();
 	if((r = sys_page_alloc(envid, (void*)PFTEMP, perm)) < 0)
-		panic("lib/fork.c: pgfault sys_page_alloc error: %e", r);
+		panic("pgfault sys_page_alloc error: %e", r);
 	
 	memcpy((void*) PFTEMP, (void*)addr, PGSIZE);
 	
 	if((r = sys_page_map(envid, (void*)PFTEMP, envid, addr, perm)) < 0)
-		panic("lib/fork.c: pgfault sys_page_map error: %e", r);
+		panic("pgfault sys_page_map error: %e", r);
 	
 	if((r = sys_page_unmap(envid, (void*)PFTEMP)) < 0)
-		panic("lib/fork.c: pgfault sys_page_unmap error: %e", r);
+		panic("pgfault sys_page_unmap error: %e", r);
 }
 
 //

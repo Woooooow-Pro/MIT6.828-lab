@@ -18,10 +18,13 @@ umain(int argc, char **argv)
 		return;
 	}
 
+	// cprintf("1. Process %d\n", sys_getenvid());
+
 	// Wait for the parent to finish forking
 	while (envs[ENVX(parent)].env_status != ENV_FREE)
 		asm volatile("pause");
 
+	// cprintf("2. Process %d\n", sys_getenvid());
 	// Check that one environment doesn't run on two CPUs at once
 	for (i = 0; i < 10; i++) {
 		sys_yield();
@@ -29,6 +32,7 @@ umain(int argc, char **argv)
 			counter++;
 	}
 
+	// cprintf("3. Process %d\n", sys_getenvid());
 	if (counter != 10*10000)
 		panic("ran on two CPUs at once (counter is %d)", counter);
 

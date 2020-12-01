@@ -32,7 +32,7 @@ mmio_map_region(physaddr_t pa, size_t size)
     pa = ROUNDDOWN(pa, PGSIZE);
     size -= pa;
     if(size + base >= MMIOLIM)
-        panic("In kern/pmap.c:mmio_map_region():\n\treservation would overflow MMIOLIM!\n");
+        panic("reservation would overflow MMIOLIM!\n");
 
     boot_map_region(kern_pgdir, base, size, pa, PTE_PCD|PTE_PWT|PTE_W);
 
@@ -769,23 +769,23 @@ pgfault(struct UTrapframe *utf)
     addr = ROUNDDOWN(addr, PGSIZE);
 
     if(!(err & FEC_WR))
-        panic("lib/fork.c: pgfault error Not FEC_WR");
+        panic("pgfault error Not FEC_WR");
 
     if(!(uvpt[(uintptr_t)PGNUM(addr)] & PTE_COW))
-        panic("lib/fork.c: pgfault error Not PTE_COW");
+        panic("pgfault error Not PTE_COW");
 
     int perm = PTE_P|PTE_U|PTE_W;
     envid_t envid = sys_getenvid();
     if((r = sys_page_alloc(envid, (void*)PFTEMP, perm)) < 0)
-        panic("lib/fork.c: pgfault sys_page_alloc error: %e", r);
+        panic("pgfault sys_page_alloc error: %e", r);
 
     memcpy((void*) PFTEMP, (void*)addr, PGSIZE);
 
     if((r = sys_page_map(envid, (void*)PFTEMP, envid, addr, perm)) < 0)
-        panic("lib/fork.c: pgfault sys_page_map error: %e", r);
+        panic("pgfault sys_page_map error: %e", r);
 
     if((r = sys_page_unmap(envid, (void*)PFTEMP)) < 0)
-        panic("lib/fork.c: pgfault sys_page_unmap error: %e", r);
+        panic("pgfault sys_page_unmap error: %e", r);
 }
 ```
 
@@ -875,3 +875,315 @@ fork(void)
 
 ### Part C: Preemptive Multitasking and Inter-Process communication (IPC)
 
+#### Exercise 13
+
+> **Exercise 13.** Modify *kern/trapentry.S* and *kern/trap.c* to initialize the appropriate entries in the IDT and provide handlers for IRQs 0 through 15. Then modify the code in `env_alloc()` in *kern/env.c* to ensure that user environments are always run with interrupts enabled.
+>
+> Also uncomment the sti instruction in `sched_halt()` so that idle CPUs unmask interrupts.
+>
+> The processor never pushes an error code when invoking a hardware interrupt handler. You might want to re-read section 9.2 of the [80386 Reference Manual](https://pdos.csail.mit.edu/6.828/2018/readings/i386/toc.htm), or section 5.8 of the [IA-32 Intel Architecture Software Developer's Manual, Volume 3](https://pdos.csail.mit.edu/6.828/2018/readings/ia32/IA32-3A.pdf), at this time.
+>
+> After doing this exercise, if you run your kernel with any test program that runs for a non-trivial length of time (e.g., `spin`), you should see the kernel print trap frames for hardware interrupts. While interrupts are now enabled in the processor, JOS isn't yet handling them, so you should see it misattribute each interrupt to the currently running user environment and destroy it. Eventually it should run out of environments to destroy and drop into the monitor.
+
+往 IDT 载入 Interrupt 然后允许 user model 下打开 `FL_IF`. 就按着提示往 *kern/trapentry.S*, *kern/trap.c*, *kern/env.c* 这三个文件中加一点代码.
+
+```pl
+# kern/trapentry.S
+# IRQs
+TRAPHANDLER_NOEC(IRQsHandler0, IRQ_OFFSET+IRQ_TIMER)
+TRAPHANDLER_NOEC(IRQsHandler1, IRQ_OFFSET+IRQ_KBD)
+TRAPHANDLER_NOEC(IRQsHandler2, IRQ_OFFSET+2)
+TRAPHANDLER_NOEC(IRQsHandler3, IRQ_OFFSET+3)
+TRAPHANDLER_NOEC(IRQsHandler4, IRQ_OFFSET+IRQ_SERIAL)
+TRAPHANDLER_NOEC(IRQsHandler5, IRQ_OFFSET+5)
+TRAPHANDLER_NOEC(IRQsHandler6, IRQ_OFFSET+6)
+TRAPHANDLER_NOEC(IRQsHandler7, IRQ_OFFSET+IRQ_SPURIOUS)
+TRAPHANDLER_NOEC(IRQsHandler8, IRQ_OFFSET+8)
+TRAPHANDLER_NOEC(IRQsHandler9, IRQ_OFFSET+9)
+TRAPHANDLER_NOEC(IRQsHandler10, IRQ_OFFSET+10)
+TRAPHANDLER_NOEC(IRQsHandler11, IRQ_OFFSET+11)
+TRAPHANDLER_NOEC(IRQsHandler12, IRQ_OFFSET+12)
+TRAPHANDLER_NOEC(IRQsHandler13, IRQ_OFFSET+13)
+TRAPHANDLER_NOEC(IRQsHandler14, IRQ_OFFSET+IRQ_IDE)
+TRAPHANDLER_NOEC(IRQsHandler15, IRQ_OFFSET+15)
+# TRAPHANDLER_NOEC(IRQsHandler16, IRQ_OFFSET+16)
+# TRAPHANDLER_NOEC(IRQsHandler17, IRQ_OFFSET+17)
+# TRAPHANDLER_NOEC(IRQsHandler18, IRQ_OFFSET+18)
+TRAPHANDLER_NOEC(IRQsHandler19, IRQ_OFFSET+IRQ_ERROR)
+```
+
+```cpp
+// kern/trap.c
+void
+trap_init(void)
+{
+    // ...
+
+    void IRQsHandler0();
+    void IRQsHandler1();
+    void IRQsHandler2();
+    void IRQsHandler3();
+    void IRQsHandler4();
+    void IRQsHandler5();
+    void IRQsHandler6();
+    void IRQsHandler7();
+    void IRQsHandler8();
+    void IRQsHandler9();
+    void IRQsHandler10();
+    void IRQsHandler11();
+    void IRQsHandler12();
+    void IRQsHandler13();
+    void IRQsHandler14();
+    void IRQsHandler15();
+    // void IRQsHandler16();
+    // void IRQsHandler17();
+    // void IRQsHandler18();
+    void IRQsHandler19();
+
+    SETGATE(idt[IRQ_OFFSET+IRQ_TIMER], 0, GD_KT, IRQsHandler0, 0);
+    SETGATE(idt[IRQ_OFFSET+IRQ_KBD], 0, GD_KT, IRQsHandler1, 0);
+    SETGATE(idt[IRQ_OFFSET+2], 0, GD_KT, IRQsHandler2, 0);
+    SETGATE(idt[IRQ_OFFSET+3], 0, GD_KT, IRQsHandler3, 0);
+    SETGATE(idt[IRQ_OFFSET+IRQ_SERIAL], 0, GD_KT, IRQsHandler4, 0);
+    SETGATE(idt[IRQ_OFFSET+5], 0, GD_KT, IRQsHandler5, 0);
+    SETGATE(idt[IRQ_OFFSET+6], 0, GD_KT, IRQsHandler6, 0);
+    SETGATE(idt[IRQ_OFFSET+IRQ_SPURIOUS], 0, GD_KT, IRQsHandler7, 0);
+    SETGATE(idt[IRQ_OFFSET+8], 0, GD_KT, IRQsHandler8, 0);
+    SETGATE(idt[IRQ_OFFSET+9], 0, GD_KT, IRQsHandler9, 0);
+    SETGATE(idt[IRQ_OFFSET+10], 0, GD_KT, IRQsHandler10, 0);
+    SETGATE(idt[IRQ_OFFSET+11], 0, GD_KT, IRQsHandler11, 0);
+    SETGATE(idt[IRQ_OFFSET+12], 0, GD_KT, IRQsHandler12, 0);
+    SETGATE(idt[IRQ_OFFSET+13], 0, GD_KT, IRQsHandler13, 0);
+    SETGATE(idt[IRQ_OFFSET+IRQ_IDE], 0, GD_KT, IRQsHandler14, 0);
+    SETGATE(idt[IRQ_OFFSET+15], 0, GD_KT, IRQsHandler15, 0);
+    // SETGATE(idt[IRQ_OFFSET+16], 0, GD_KT, IRQsHandler16, 0);
+    // SETGATE(idt[IRQ_OFFSET+17], 0, GD_KT, IRQsHandler17, 0);
+    // SETGATE(idt[IRQ_OFFSET+18], 0, GD_KT, IRQsHandler18, 0);
+    SETGATE(idt[IRQ_OFFSET+IRQ_ERROR], 0, GD_KT, IRQsHandler19, 0);
+
+    // ...
+}
+```
+
+```cpp
+// kern/env.c
+int
+env_alloc(struct Env **newenv_store, envid_t parent_id)
+{
+    // ...
+
+    e->env_tf.tf_eflags |= FL_IF;
+
+    // ...
+}
+```
+
+#### Exercise 14
+
+> Exercise 14. Modify the kernel's `trap_dispatch()` function so that it calls `sched_yield()` to find and run a different environment whenever a clock interrupt takes place.
+>
+> You should now be able to get the *user/spin* test to work: the parent environment should fork off the child, `sys_yield()` to it a couple times but in each case regain control of the CPU after one time slice, and finally kill the child environment and terminate gracefully.
+
+填空题本身没什么难度, 但是这里做完好像只有 60 分...
+
+```cpp
+static void
+trap_dispatch(struct Trapframe *tf)
+{
+    // ...
+    if(tf->tf_trapno == IRQ_OFFSET + IRQ_TIMER){
+        lapic_eoi();
+        sched_yield();
+    }
+    // ...
+}
+```
+
+fuck 这里取消 `sched_halt(void)` 的注释 ( 淦 )
+
+```cpp
+// kern/sched.c
+void
+sched_halt(void){
+    // ...
+    // Uncomment the following line after completing exercise 13
+    // 😯
+    "sti\n"
+    // ...
+}
+```
+
+> ![Figure 4-8](assets/img/lab4/lab4_8.png)
+>
+> **Figure 4-8**
+
+#### Exercise 15
+
+> **Exercise 15.** Implement `sys_ipc_recv` and `sys_ipc_try_send` in *kern/syscall.c*. Read the comments on both before implementing them, since they have to work together. When you call `envid2env` in these routines, you should set the `checkperm` flag to 0, meaning that any environment is allowed to send IPC messages to any other environment, and the kernel does no special permission checking other than verifying that the target envid is valid.
+>
+> Then implement the `ipc_recv` and `ipc_send` functions in *lib/ipc.c*.
+>
+> Use the *user/pingpong* and *user/primes* functions to test your IPC mechanism. *user/primes* will generate for each prime number a new environment until JOS runs out of environments. You might find it interesting to read *user/primes.c* to see all the forking and IPC going on behind the scenes.
+
+按着提示写写程序, 主要是做一堆判断, 下面就是几个要改的程序.
+
+```cpp
+static int
+sys_ipc_try_send(envid_t envid, uint32_t value, void *srcva, unsigned perm)
+{
+    struct Env *dste;
+    struct PageInfo *pginfo;
+    pte_t * curpte;
+    int r;
+    int flag = PTE_P|PTE_U;
+
+    // -E_BAD_ENV if environment envid doesn't currently exist.
+    //    (No need to check permissions.)
+    if((r = envid2env(envid, &dste, 0)) < 0)
+        return r;
+
+    // -E_IPC_NOT_RECV if envid is not currently blocked in sys_ipc_recv,
+    //    or another environment managed to send first.
+    if(!dste->env_ipc_recving)
+        return -E_IPC_NOT_RECV;
+
+    if((uintptr_t)srcva >= UTOP){
+        perm = 0;
+        goto RUN;
+    }
+
+    // -E_INVAL if srcva < UTOP but srcva is not page-aligned.
+    if((uintptr_t)srcva % PGSIZE)
+        return -E_INVAL;
+
+    // -E_INVAL if srcva < UTOP and perm is inappropriate
+    if((perm & flag) != flag)
+        return -E_INVAL;
+
+    if( perm & ~PTE_SYSCALL)
+        return -E_INVAL;
+
+    // -E_INVAL if srcva < UTOP but srcva is not mapped in the caller's
+    //    address space.
+    if(!(pginfo = page_lookup(curenv->env_pgdir, srcva, &curpte)))
+        return -E_INVAL;
+
+    // -E_INVAL if (perm & PTE_W), but srcva is read-only in the
+    //    current environment's address space.
+    if((perm & PTE_W) && !(*curpte & PTE_W))
+        return -E_INVAL;
+
+    // -E_NO_MEM if there's not enough memory to map srcva in envid's
+    //    address space.
+    if((uintptr_t)dste->env_ipc_dstva < UTOP){
+        if((r = page_insert(dste->env_pgdir, pginfo, dste->env_ipc_dstva, perm))< 0)
+            return r;
+    }
+    else
+        perm = 0;
+
+RUN:
+    dste->env_ipc_recving = false;
+    dste->env_ipc_from = curenv->env_id;
+    dste->env_ipc_value = value;
+    dste->env_ipc_perm = perm;
+    dste->env_status = ENV_RUNNABLE;
+
+    // The target environment returning 0 from
+    // the paused sys_ipc_recv system call.
+    dste->env_tf.tf_regs.reg_eax = 0;
+
+    return 0;
+}
+```
+
+```cpp
+static int
+sys_ipc_recv(void *dstva)
+{
+    if((uintptr_t)dstva < UTOP && (uintptr_t)dstva % PGSIZE)
+        return -E_INVAL;
+
+    curenv->env_ipc_recving = true;
+    curenv->env_ipc_dstva = dstva;
+    curenv->env_status = ENV_NOT_RUNNABLE;
+    sched_yield();
+    return 0;
+}
+```
+
+这里也不要忘记往 syscall switch 里面加判断.
+
+```cpp
+int32_t
+syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, uint32_t a5)
+{
+    // ...
+    case SYS_ipc_try_send:
+        return sys_ipc_try_send((envid_t)a1, (uint32_t)a2, (void*)a3, (unsigned int)a4);
+    case SYS_ipc_recv:
+        return sys_ipc_recv((void*)a1);
+    // ...
+}
+```
+
+接下来是 lib/ipc.c
+
+要注意这里返回 `thisenv->env_ipc_valu` 而不是原先的 0... 坑死我了, 我看了 tf 里面出了个 Divide error 才反应过来.
+
+> ![Figure 4-9](assets/img/lab4/lab4_9.png)
+> **Figure 4-9**
+
+```cpp
+int32_t
+ipc_recv(envid_t *from_env_store, void *pg, int *perm_store)
+{
+    int r;
+
+    if(!pg)
+        pg = (void*)UTOP;
+
+    if((r = sys_ipc_recv(pg)) < 0){
+        if(from_env_store)
+            *from_env_store = 0;
+        if(perm_store)
+            *perm_store = 0;
+        return r;
+    }
+
+    if(from_env_store)
+        *from_env_store = thisenv->env_ipc_from;
+
+    if(perm_store){
+        if((uintptr_t)pg < UTOP)
+            *perm_store = thisenv->env_ipc_perm;
+        else
+            *perm_store = 0;
+    }
+    return thisenv->env_ipc_value;
+}
+```
+
+```cpp
+void
+ipc_send(envid_t to_env, uint32_t val, void *pg, int perm)
+{
+    int r;
+    int cnt = 0;
+
+    if(!pg)
+        pg = (void*)UTOP;
+
+    while((r = sys_ipc_try_send(to_env, val, pg, perm)) < 0){
+        if(r != -E_IPC_NOT_RECV)
+            panic("ipc_send call sys_ipc_try_send error: %e\n", r);
+        if(++cnt >= 1000){
+            cnt = 0;
+            sys_yield();
+        }
+    }
+}
+```
+
+> ![Figure 4-10](assets/img/lab4/lab4_10.png)
+> **Figure 4-10**

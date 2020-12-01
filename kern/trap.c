@@ -96,6 +96,27 @@ trap_init(void)
 
 	void SystemcallHandler();
 
+	void IRQsHandler0();
+    void IRQsHandler1();
+    void IRQsHandler2();
+    void IRQsHandler3();
+    void IRQsHandler4();
+    void IRQsHandler5();
+    void IRQsHandler6();
+    void IRQsHandler7();
+    void IRQsHandler8();
+    void IRQsHandler9();
+    void IRQsHandler10();
+    void IRQsHandler11();
+    void IRQsHandler12();
+    void IRQsHandler13();
+    void IRQsHandler14();
+    void IRQsHandler15();
+    // void IRQsHandler16();
+    // void IRQsHandler17();
+    // void IRQsHandler18();
+    void IRQsHandler19();
+
 	SETGATE(idt[T_DIVIDE], 0, GD_KT, DivideHandler, 0);
 	SETGATE(idt[T_DEBUG], 0, GD_KT, DebugHandler, 0);
 	SETGATE(idt[T_NMI], 0, GD_KT, NmiHandler, 0);
@@ -118,6 +139,27 @@ trap_init(void)
 	SETGATE(idt[T_SIMDERR], 0, GD_KT, SimderrHandler, 0);
 
 	SETGATE(idt[T_SYSCALL], 0, GD_KT, SystemcallHandler, 3);
+
+	SETGATE(idt[IRQ_OFFSET+IRQ_TIMER], 0, GD_KT, IRQsHandler0, 0);
+    SETGATE(idt[IRQ_OFFSET+IRQ_KBD], 0, GD_KT, IRQsHandler1, 0);
+    SETGATE(idt[IRQ_OFFSET+2], 0, GD_KT, IRQsHandler2, 0);
+    SETGATE(idt[IRQ_OFFSET+3], 0, GD_KT, IRQsHandler3, 0);
+    SETGATE(idt[IRQ_OFFSET+IRQ_SERIAL], 0, GD_KT, IRQsHandler4, 0);
+    SETGATE(idt[IRQ_OFFSET+5], 0, GD_KT, IRQsHandler5, 0);
+    SETGATE(idt[IRQ_OFFSET+6], 0, GD_KT, IRQsHandler6, 0);
+    SETGATE(idt[IRQ_OFFSET+IRQ_SPURIOUS], 0, GD_KT, IRQsHandler7, 0);
+    SETGATE(idt[IRQ_OFFSET+8], 0, GD_KT, IRQsHandler8, 0);
+    SETGATE(idt[IRQ_OFFSET+9], 0, GD_KT, IRQsHandler9, 0);
+    SETGATE(idt[IRQ_OFFSET+10], 0, GD_KT, IRQsHandler10, 0);
+    SETGATE(idt[IRQ_OFFSET+11], 0, GD_KT, IRQsHandler11, 0);
+    SETGATE(idt[IRQ_OFFSET+12], 0, GD_KT, IRQsHandler12, 0);
+    SETGATE(idt[IRQ_OFFSET+13], 0, GD_KT, IRQsHandler13, 0);
+    SETGATE(idt[IRQ_OFFSET+IRQ_IDE], 0, GD_KT, IRQsHandler14, 0);
+    SETGATE(idt[IRQ_OFFSET+15], 0, GD_KT, IRQsHandler15, 0);
+    // SETGATE(idt[IRQ_OFFSET+16], 0, GD_KT, IRQsHandler16, 0);
+    // SETGATE(idt[IRQ_OFFSET+17], 0, GD_KT, IRQsHandler17, 0);
+    // SETGATE(idt[IRQ_OFFSET+18], 0, GD_KT, IRQsHandler18, 0);
+    SETGATE(idt[IRQ_OFFSET+IRQ_ERROR], 0, GD_KT, IRQsHandler19, 0);
 	
 	// Per-CPU setup 
 	trap_init_percpu();
@@ -250,6 +292,10 @@ trap_dispatch(struct Trapframe *tf)
 	// Handle clock interrupts. Don't forget to acknowledge the
 	// interrupt using lapic_eoi() before calling the scheduler!
 	// LAB 4: Your code here.
+	if(tf->tf_trapno == IRQ_OFFSET + IRQ_TIMER){
+		lapic_eoi();
+		sched_yield();
+	}
 
 	// Unexpected trap: The user process or the kernel has a bug.
 	print_trapframe(tf);
