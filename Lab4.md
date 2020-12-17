@@ -2,6 +2,33 @@
 
 *by Woooooow~ / start 2020/11/26*
 
+## Content
+
+- [LAB 4](#lab-4)
+  - [Content](#content)
+  - [Solution to Exercise](#solution-to-exercise)
+    - [Part A: Multiprocessor Support and Cooperative Multitasking](#part-a-multiprocessor-support-and-cooperative-multitasking)
+      - [Exercise 1](#exercise-1)
+      - [Exercise 2](#exercise-2)
+      - [Exercise 3](#exercise-3)
+      - [Exercise 4](#exercise-4)
+      - [Exercise 5](#exercise-5)
+      - [Exercise 6](#exercise-6)
+      - [Exercise 7](#exercise-7)
+    - [Part B: Copy-on-Write Fork](#part-b-copy-on-write-fork)
+      - [Exercise 8](#exercise-8)
+      - [Exercise 9/10/11](#exercise-91011)
+      - [Exercise 12](#exercise-12)
+    - [Part C: Preemptive Multitasking and Inter-Process communication (IPC)](#part-c-preemptive-multitasking-and-inter-process-communication-ipc)
+      - [Exercise 13](#exercise-13)
+      - [Exercise 14](#exercise-14)
+      - [Exercise 15](#exercise-15)
+      - [Exercise 16(TA 附加)](#exercise-16ta-附加)
+  - [问题回答](#问题回答)
+    - [QUESTION1](#question1)
+    - [QUESTION2](#question2)
+    - [QUESTION3](#question3)
+
 发现助教从 [gatsbyd](https://github.com/gatsbyd/mit_6.828_jos_2018) 这里拿的源码, 那就毫不客气的学习一下? ( 不愧是 了不起的盖茨比 )
 
 ## Solution to Exercise
@@ -128,7 +155,7 @@ mem_init_mp(void)
 >
 > **Figure 4-1**
 
-#### Exercise 44
+#### Exercise 4
 
 > **Exercise 4.** The code in `trap_init_percpu()` (*kern/trap.c*) initializes the TSS and TSS descriptor for the BSP. It worked in Lab 3, but is incorrect when running on other CPUs. Change the code so that it can work on all CPUs. (Note: your new code should not use the global `ts` variable any more.)
 
@@ -1187,3 +1214,138 @@ ipc_send(envid_t to_env, uint32_t val, void *pg, int perm)
 
 > ![Figure 4-10](assets/img/lab4/lab4_10.png)
 > **Figure 4-10**
+
+#### Exercise 16(TA 附加)
+
+> **Exercise 16.** 仿照 `sched_yield()` 函数为 JOS 添加一个新的调度算法: 优先级调度算法. 你需要能为每个进程设置优先级 ( 数值越大表示优先级越高 ), 且你的调度算法会保证优先级越高的程序越先被执行. 除此以外, 你还需要编写测试程序来验证你代码的正确性 ( 提示: 测试程序的编写可以参考 *user/yield.c* )
+
+总体不难, 主要是为了写这个测试程序还得再写一个 system call ( 这里我设置为 `sys_env_set_priority()` ), 这件事挺烦的, 总体上就写了一小时. 主要将 *kern/sched.c* 中的选择下一个运行的程序的代码强行变为查找 priority 最大的那个 env ( 单纯的用遍历实现, and 我往 `Env` 这个结构中加了一个 `uint32_t priority` 的值用来记录每个进程的优先级 )
+
+And 一般而言 priority 越小优先级越高吧, 为啥这里设置为越大越高?
+
+```cpp
+// inc/env.h
+struct Env{
+    // ...
+    // Lab4 Priority sched
+    uint32_t env_priority;
+    // ...
+};
+```
+
+```cpp
+void
+sched_yield(void)
+{
+    struct Env *idle;
+    int begin = 0;
+
+    if(curenv)
+        begin = ENVX(curenv->env_id) + 1;
+
+    struct Env *high_e = NULL;
+
+    for(int i = 0; i < NENV; ++i){
+        idle = envs + ((i + begin) % NENV);
+        if(idle->env_status == ENV_RUNNABLE && (!high_e || high_e->env_priority <= idle->env_priority) ){
+            high_e = idle;
+        }
+    }
+
+    if(curenv && curenv->env_status == ENV_RUNNING && (!high_e || high_e->env_priority <= curenv->env_priority))
+        high_e = curenv;
+
+    env_run(high_e);
+
+    // sched_halt never returns
+    sched_halt();
+}
+```
+
+关于 system call 的设置个人觉得没必要写在报告中. 下面是魔改后的 user/yield.c, 作为测试代码.
+
+```cpp
+void
+umain(int argc, char **argv)
+{
+    int i;
+    sys_env_set_priority(1);
+
+    for(int i = 0; i < 2; ++i){
+        if(fork() == 0){
+            sys_env_set_priority(i+1);
+            break;
+        }
+    }
+
+    cprintf("Hello, I am environment %08x. Priority %d\n", thisenv->env_id, thisenv->env_priority);
+    for (i = 0; i < 5; i++) {
+        sys_yield();
+        cprintf("Back in environment %08x, Priority %d iteration %d.\n",
+            thisenv->env_id, thisenv->env_priority, i);
+    }
+    cprintf("All done in environment %08x, Priority %d.\n", thisenv->env_id, thisenv->env_priority, thisenv->env_priority);
+}
+```
+
+> ![Figure 4-11](assets/img/lab4/lab4_11.png)
+>
+> **Figure 4-11**
+
+## 问题回答
+
+### QUESTION1
+
+> 详细描述 JOS 启动多个 APs( Application Processors ) 的过程.
+
+kernel 启动函数就是那个 `i386_init()` 在之前的几个 lab 中我们一直在用单 cpu 进行实验, 这个 lab 中利用最初 boot 的 CPU( 被称作 bootstrap processor 简写 BSP ), 来唤醒多 CPU 环境, 而被唤醒的别的 CPU 就叫 APs.
+
+在多 CPU 的环境下, CPU 之间会共享如内存, I/O 等硬件资源, 但是类似与 APIC 这种的硬件资源就不能共享 ( 当然寄存器 CPU 自己的肯定不会共享 ), 因此在我们在 Exercise 1 中给每个 CPU 分配了对应 LAPIC 的 I/O 槽, 之后 BSP 调用如 `mp_init()`, `lapic_init()` 函数给 APs 进行配置 ( 比如说 CPU 的数目, LAPIC 的初始化等 ) 好让后面唤醒的 APs 能直接工作.
+
+在 `i386_init()` 函数最后调用函数 `boot_aps()` 正式启动 APs. `boot_aps()` 像极了 boot 过程 ( 不就是嘛 ) 先把写在 *kern/mpentry.S* 中的那段汇编用丢到 kernel text 段 ( 由于代码现在就运行在 text 段, 因此就里面找个地方放这个函数就行了 ), 之后今循环里面给每个 CPU kernel stack 赋值. 然后 `i386_init()` 调用 `lapic_startap()` 函数. `lapic_startap()` 这个函数在对每个 CPU 调用之前映射到 `void* code` 上的 `mpentry_start` 这里和最初 *boot/boot.S* 里的没太大区别 ( 其实只是不想仔细研究这段汇编代码了 ), 跑完这段汇编后控制转交给了 `mp_main()` ( 这是 APs 已经启动了, 然后现在在运行 `mp_main()` 函数的是 APs, BSP 现在是个等待状态 ). 刚启动的 CPU 会在 `mp_main` 里面初始化自己的 LAPIC, 进程, trap, 然后告诉 BPS 我好了, BPS 就会在 `boot_aps()` 里的 for 循环内启动下一个 CPU.
+
+下面是我随便画的流程图
+
+```c
+/*
+ *      +-----------------------+   +----------------------+
+ *      | kern/init.c:i386_init |==>| kern/init.c:boot_aps |
+ *      +-----------------------+   +----------------------+
+ *                 /\                          ||
+ *                 ||                          \/
+ *      +--------------------+   +------------------------------+
+ *      | kern/init.c:mp_main|<==| kern/mpentry.S:mpentry_start |
+ *      +--------------------+   +------------------------------+
+ *
+*/
+```
+
+### QUESTION2
+
+> 详细描述:
+> a) 在 JOS 中, 执行 COW ( Copy-On-Write ) fork 时, 用户程序依次执行了哪些步骤? 这些步骤包含了哪些系统调用? ( 非常没有无聊的问题 )
+>
+> b) 当进程发生 COW 相关的 page fault 时, 这个中断是被如何处理的? 其中哪些步骤在内核中, 哪些步骤在用户空间中?
+
+由于之前在做 Part B 的时候很认真的分析过调用顺序, 这里就简要阐述下:
+
+- 当一个用户程序调用 COW fork ( 即 lib/fork.c: `fork()` ) 时, `fork()` 首先会将用户程序的 page fault handler 设置为 COW 专用的 `pgfault()` 函数, 这一步会涉及到 `sys_page_alloc()` ( 分配 User Exceptional Stack ) 和 `sys_env_set_pgfault_upcall()` ( 设置 page fault handler ). 随后会调用 `sys_exofork()` 来实现最基本的 fork 进程创建. 而在用 `duppage()` 复制 COW 页过程中, 则会调用 `sys_getenvid()` 和 `sys_page_map()` 两个系统调用. 最后还会用到 `sys_env_set_status()` 设定进程状态.
+- 像 lab 3 中 exception 的调用过程, 一路走到 trap_dispatch 然后到 trap 文件中的 page fault handler, 这里会将用户此时的 tf 放到对应进程的异常栈中 ( UXSTACKTOP ), 整完后会调用 `env_run` 回到 user model 并从进程自定义的 page fault handler 处理, 这里从这里开始就一直是在用户空间中处理缺页异常了.
+
+### QUESTION3
+
+> *user/primes.c* 这段代码非常有趣, 请详细解释一下这段代码是如何执行的, 画出代码流程图, 并指出所谓的**素数**体现在哪里.
+
+我写的这个的时候一点都不有趣 OK?
+
+*user/primes.c* 中这段代码是 JOS 作者结合了 [Bell Labs and CSP Threads](https://swtch.com/~rsc/thread/) 里面的代码整出来的阴间产物. 其实际上就是由一个进程先创建一个子进程, 然后不断地给他创造的这个子进程发送数字. 之后每个被 fork 出来的子进程同样做和父进程一样的工作, 即 fork 一个新的子进程然后向自己创建的子进程发送奇妙数字. ( 子承父业嗷 )
+
+这个程序被称为 **primes**, 是因为它事实上利用了进程 fork 的方式实现了一个用筛法找质数的功能. main 进程发送从 2 开始的自然数给子进程, 子进程留下第一个数字 2, 即为这个子进程找到的素数. 而后子进程会将所有2的倍数筛掉, 将剩下的数字再发给自己的子进程 ( 这里也就是 main 进程子进程的子进程 ), 由被 fork 出的进程重复这个过程.
+
+每个进程留下的第一个数字就一定是素数, 这是因为这个数经过了前面所有小于它的数的筛选, 即它不是除了 1 以外, 任意一个小于它的数字的倍数. 因此这个数字就一定是素数, 这样每个进程就都能够找到一个素数. 当然, 在 JOS 里面由于受到默认最大进程数量的限制, 这个程序只能找到 2 开始的前 1022 个素数.
+
+下面这个流程图意思意思就行啦~
+
+> ![Figure 4-12](assets/img/lab4/lab4_12.jpeg)
+>
+> **Figure 4-12**

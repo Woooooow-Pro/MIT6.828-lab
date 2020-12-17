@@ -469,6 +469,14 @@ sys_show_environments(void) {
 	return;
 }
 
+
+// Lab4 Priority sched
+static void
+sys_env_set_prioriy(uint32_t priority){
+	curenv->env_priority = priority;
+}
+
+
 // Dispatches to the correct kernel function, passing the arguments.
 int32_t
 syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, uint32_t a5)
@@ -510,6 +518,9 @@ syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, 
 			return sys_ipc_try_send((envid_t)a1, (uint32_t)a2, (void*)a3, (unsigned int)a4);
 		case SYS_ipc_recv:
 			return sys_ipc_recv((void*)a1);
+		case SYS_env_set_priority:
+			sys_env_set_prioriy((uint32_t)a1);
+			return 0;
 		case NSYSCALLS:
 		default:
 			return -E_INVAL;

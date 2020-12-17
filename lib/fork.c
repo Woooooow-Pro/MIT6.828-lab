@@ -142,7 +142,6 @@ fork(void)
 		return r;
 
 	return envid;
-	panic("fork not implemented");
 }
 
 // Challenge!
