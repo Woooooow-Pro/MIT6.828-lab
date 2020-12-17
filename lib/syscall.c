@@ -117,3 +117,15 @@ sys_ipc_recv(void *dstva)
 	return syscall(SYS_ipc_recv, 1, (uint32_t)dstva, 0, 0, 0, 0);
 }
 
+void
+sys_show_environments(void)
+{
+	syscall(SYS_show_environments, 0, 0, 0, 0, 0, 0);
+}
+
+// Lab4 Priority sched
+void
+sys_env_set_priority(uint32_t priority)
+{
+	syscall(SYS_env_set_priority, 0, (uint32_t)priority, 0, 0, 0, 0);
+}

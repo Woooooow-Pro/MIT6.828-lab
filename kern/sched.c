@@ -30,6 +30,25 @@ sched_yield(void)
 	// below to halt the cpu.
 
 	// LAB 4: Your code here.
+	int begin = 0;
+    if(curenv)
+        begin = ENVX(curenv->env_id) + 1;
+
+	// Lab4 Priority sched
+	struct Env *high_e = NULL;
+
+	for(int i = 0; i < NENV; ++i){
+		idle = envs + ((i + begin) % NENV);
+		if(idle->env_status == ENV_RUNNABLE && (!high_e || high_e->env_priority <= idle->env_priority) ){
+			// env_run(idle);
+			high_e = idle;
+		}
+	}
+
+	if(curenv && curenv->env_status == ENV_RUNNING && (!high_e || high_e->env_priority <= curenv->env_priority))
+		high_e = curenv;
+
+	env_run(high_e);
 
 	// sched_halt never returns
 	sched_halt();
@@ -76,7 +95,7 @@ sched_halt(void)
 		"pushl $0\n"
 		"pushl $0\n"
 		// Uncomment the following line after completing exercise 13
-		//"sti\n"
+		"sti\n"
 		"1:\n"
 		"hlt\n"
 		"jmp 1b\n"

@@ -46,6 +46,7 @@ void	sys_cputs(const char *string, size_t len);
 int	sys_cgetc(void);
 envid_t	sys_getenvid(void);
 int	sys_env_destroy(envid_t);
+
 void	sys_yield(void);
 static envid_t sys_exofork(void);
 int	sys_env_set_status(envid_t env, int status);
@@ -57,6 +58,9 @@ int	sys_page_map(envid_t src_env, void *src_pg,
 int	sys_page_unmap(envid_t env, void *pg);
 int	sys_ipc_try_send(envid_t to_env, uint32_t value, void *pg, int perm);
 int	sys_ipc_recv(void *rcv_pg);
+void sys_show_environments(void);
+// Lab4 Priority sched
+void sys_env_set_priority(uint32_t priority);
 
 // This must be inlined.  Exercise for reader: why?
 static inline envid_t __attribute__((always_inline))
@@ -116,6 +120,8 @@ int	pipeisclosed(int pipefd);
 
 // wait.c
 void	wait(envid_t env);
+
+
 
 /* File open modes */
 #define	O_RDONLY	0x0000		/* open for reading only */
